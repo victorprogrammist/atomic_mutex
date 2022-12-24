@@ -30,3 +30,5 @@ AtomicMutex<char> mtxChar;
 std::cout << sizeof(mtxChar); // 1 байте
 AtomicMutexReadLocker<char> locker(mtxChar);
 ```
+
+Программный код очень не большой и понять его будет не сложно и без комметариев, если знаете что такое мютексы.
