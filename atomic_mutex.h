@@ -39,13 +39,14 @@ template <class TT>
 struct AtomicMutexReadLocker {
     using Mtx = AtomicMutex<TT>;
 
-    Mtx* ptr = nullptr;
-
     AtomicMutexReadLocker(Mtx& mtx)
         : ptr(&mtx) { mtx.lockForRead(); }
 
     ~AtomicMutexReadLocker() {
         ptr->unlockForRead(); }
+
+private:
+    Mtx* ptr = nullptr;
 };
 
 //*****************************************************
@@ -53,13 +54,14 @@ template <class TT>
 struct AtomicMutexWriteLocker {
     using Mtx = AtomicMutex<TT>;
 
-    Mtx* ptr = nullptr;
-
     AtomicMutexWriteLocker(Mtx& mtx)
         : ptr(&mtx) { mtx.lockForWrite(); }
 
     ~AtomicMutexWriteLocker() {
         ptr->unlockForWrite(); }
+
+private:
+    Mtx* ptr = nullptr;
 };
 
 //*****************************************************
