@@ -4,7 +4,7 @@
 
 Варианты использования:
 
-```
+```cpp
 MutexInt mtx;
 ...
 mtx.lockForRead();
@@ -13,7 +13,8 @@ mtx.unlockForRead();
 mtx.lockForWrite();
 mtx.unlockForWrite();
 ```
-```
+
+```cpp
 MutexInt mtx;
 ...
 {
@@ -25,9 +26,10 @@ MutexInt mtx;
 }
 ...
 ```
-```
+
+```cpp
 AtomicMutex<char> mtxChar;
-std::cout << sizeof(mtxChar); // 1 байте
+std::cout << sizeof(mtxChar); // 1 байт
 AtomicMutexReadLocker<char> locker(mtxChar);
 ```
 
