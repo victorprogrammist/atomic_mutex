@@ -39,6 +39,13 @@ MutexInt mtx;
    MutexIntWriteLocker locker(mtx);
 }
 ...
+mtx.useForRead([&] {
+   doSomeThing();
+});
+...
+mtx.useForWrite([&] {
+   doSomeThing();
+});
 ```
 
 ```cpp
