@@ -30,6 +30,9 @@ struct AtomicMutex {
     void lockForRead();
     void unlockForRead();
 
+    void useForRead(const auto& task);
+    void useForWrite(const auto& task);
+
 private:
     std::atomic<TT> counter = 0;
 };
@@ -65,6 +68,19 @@ private:
 };
 
 //*****************************************************
+
+template <class TT>
+void AtomicMutex<TT>::useForRead(const auto& task) {
+    AtomicMutexReadLocker<TT> locker(*this);
+    task();
+}
+
+template <class TT>
+void AtomicMutex<TT>::useForWrite(const auto& task) {
+    AtomicMutexWriteLocker<TT> locker(*this);
+    task();
+}
+
 template <class TT>
 void AtomicMutex<TT>::lockForWrite() {
     TT v = 0;
