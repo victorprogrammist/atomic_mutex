@@ -19,7 +19,7 @@
 Варианты использования:
 
 ```cpp
-MutexInt mtx;
+MutexInt mtx; // atomic_mutex.h: using MutexInt = AtomicMutex<int>;
 ...
 mtx.lockForRead();
 mtx.unlockForRead();
@@ -32,18 +32,20 @@ mtx.unlockForWrite();
 MutexInt mtx;
 ...
 {
-   MutexIntReadLocker locker(mtx);
+   MutexIntRead locker(mtx); // using MutexIntRead = AtomicMutexReadLocker<int>;
+   ...
 }
 ...
 {
-   MutexIntWriteLocker locker(mtx);
+   MutexIntWrite locker(mtx); // using MutexIntWrite = AtomicMutexWriteLocker<int>;
+   ...
 }
 ...
-mtx.useForRead([&] {
+mtx.useForRead([&] { // void AtomicMutex::useForRead(const auto& task);
    doSomeThing();
 });
 ...
-mtx.useForWrite([&] {
+mtx.useForWrite([&] { // void AtomicMutex::useForWrite(const auto& task);
    doSomeThing();
 });
 ```
