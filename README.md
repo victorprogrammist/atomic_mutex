@@ -32,20 +32,24 @@ mtx.unlockForWrite();
 MutexInt mtx;
 ...
 {
-   MutexIntRead locker(mtx); // using MutexIntRead = AtomicMutexReadLocker<int>;
+   // using MutexIntRead = AtomicMutexReadLocker<int>;
+   MutexIntRead locker(mtx);
    ...
 }
 ...
 {
-   MutexIntWrite locker(mtx); // using MutexIntWrite = AtomicMutexWriteLocker<int>;
+   // using MutexIntWrite = AtomicMutexWriteLocker<int>;
+   MutexIntWrite locker(mtx);
    ...
 }
 ...
-mtx.useForRead([&] { // void AtomicMutex::useForRead(const auto& task);
+// void AtomicMutex::useForRead(const auto& task);
+mtx.useForRead([&] {
    doSomeThing();
 });
 ...
-mtx.useForWrite([&] { // void AtomicMutex::useForWrite(const auto& task);
+// void AtomicMutex::useForWrite(const auto& task);
+mtx.useForWrite([&] {
    doSomeThing();
 });
 ```
