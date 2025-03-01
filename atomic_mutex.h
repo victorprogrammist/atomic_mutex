@@ -15,10 +15,17 @@
 template <class TT> struct AtomicMutex;
 template <class TT> struct AtomicMutexReadLocker;
 template <class TT> struct AtomicMutexWriteLocker;
+template <class TT> struct AtomicMutexWriteLazyLocker;
 
 using MutexInt = AtomicMutex<int>;
 using MutexIntRead = AtomicMutexReadLocker<int>;
 using MutexIntWrite = AtomicMutexWriteLocker<int>;
+using MutexIntWriteLazy = AtomicMutexWriteLazyLocker<int>;
+
+using MutexChar = AtomicMutex<char>;
+using MutexCharRead = AtomicMutexReadLocker<char>;
+using MutexCharWrite = AtomicMutexWriteLocker<char>;
+using MutexCharWriteLazy = AtomicMutexWriteLazyLocker<char>;
 
 //*****************************************************
 template <class TT>
@@ -26,7 +33,8 @@ struct AtomicMutex {
     static_assert( TT(-1) < 0, "Need signed numeric type");
 
     static auto o() {
-        return std::memory_order_seq_cst; }
+        return std::memory_order_relaxed;
+    }
 
     void lockForWriteGreedy();
     void lockForWriteLazy();
@@ -49,20 +57,15 @@ struct AtomicMutex {
 private:
     std::atomic<TT> counter = 0;
 
-    void waitWhile(TT v) const noexcept {
+    inline void waitWhile(TT v) const noexcept {
         counter.wait(v, o());
     }
 
-    bool exch(TT& vWas, TT vNew) volatile noexcept {
+    inline bool exchWeak(TT& vWas, TT vNew) noexcept {
         return counter.compare_exchange_weak(vWas, vNew, o());
     }
 
-    void exchAss(TT vWas, TT vNew) volatile noexcept {
-        bool r = exch(vWas, vNew);
-        assert( r );
-    }
-
-    TT load() const volatile noexcept { return counter.load(o()); }
+    inline TT load() const noexcept { return counter.load(o()); }
 };
 
 //*****************************************************
@@ -95,6 +98,20 @@ private:
     Mtx* ptr = nullptr;
 };
 
+template <class TT>
+struct AtomicMutexWriteLazyLocker {
+    using Mtx = AtomicMutex<TT>;
+
+    AtomicMutexWriteLazyLocker(Mtx& mtx)
+        : ptr(&mtx) { mtx.lockForWriteLazy(); }
+
+    ~AtomicMutexWriteLazyLocker() {
+        ptr->unlockForWrite(); }
+
+private:
+    Mtx* ptr = nullptr;
+};
+
 //*****************************************************
 
 template <class TT>
@@ -114,121 +131,128 @@ void AtomicMutex<TT>::useForWrite(const auto& task) {
 template <class TT>
 void AtomicMutex<TT>::lockForWriteGreedy() {
 
+    TT vv = load();
+
     while (true) {
-        volatile TT vv = load();
-        TT v = vv;
-
-        if (v < 0) {
-            waitWhile(v);
-            continue;
-        }
-
-        if (v > 0) {
-            if (exch(v, -2 - v))
+        if (vv > 0) {
+            if (exchWeak(vv, -2 - vv))
                 break;
-            continue;
-        }
 
-        if (exch(v, -1))
-            return;
+        } else if (vv == 0) {
+            if (exchWeak(vv, -1))
+                return;
+
+        } else {
+            waitWhile(vv);
+            vv = load();
+        }
     }
 
+    vv = load();
+
     while (true) {
-        volatile TT vv = load();
-        TT v = vv;
 
-        if (v < -2) {
-            waitWhile(v);
-            continue;
+        if (vv == -2) {
+            if (exchWeak(vv, -1))
+                return;
+
+        } else {
+            assert( vv < -2 );
+            waitWhile(vv);
+            vv = load();
         }
-
-        assert( v == -2 );
-
-        if (exch(v, -1))
-            break;
     }
 }
 
 template <class TT>
 void AtomicMutex<TT>::lockForWriteLazy() {
 
-    while (true) {
-        volatile TT vv = load();
-        TT v = vv;
+    TT vv = load();
 
-        if (v) {
-            waitWhile(v);
+    while (true) {
+        if (vv == 0) {
+            if (exchWeak(vv, -1))
+                return;
+        } else {
+            waitWhile(vv);
+            vv = load();
             continue;
         }
-
-        if (exch(v, -1))
-            return;
     }
 }
 
 template <class TT>
 void AtomicMutex<TT>::unlockForWrite() {
-    exchAss(-1, 0);
+
+    TT v = -1;
+    while (!exchWeak(v, 0));
+
     counter.notify_all(); // кто первый, того и тапки
 }
 
 template <class TT>
 bool AtomicMutex<TT>::tryLockForRead() {
 
+    TT vv = load();
+
     while (true) {
-        volatile TT vv = load();
-        TT v = vv;
-
-        if (v < 0)
+        if (vv >= 0) {
+            if (exchWeak(vv, vv+1))
+                return true;
+        } else
             return false;
-
-        if (exch(v, v+1))
-            return true;
     }
 }
 
 template <class TT>
 void AtomicMutex<TT>::lockForRead() {
 
-    while (true) {
-        volatile TT vv = load();
-        TT v = vv;
+    TT vv = load();
 
-        if (v < 0)
-            waitWhile(v);
-        else if (exch(v, v+1))
-            break;
+    while (true) {
+
+        if (vv >= 0) {
+            if (exchWeak(vv, vv+1)) {
+                return;
+
+            }
+
+        } else {
+            waitWhile(vv);
+            vv = load();
+        }
     }
 }
 
 template <class TT>
 void AtomicMutex<TT>::unlockForRead() {
 
+    TT vv = load();
+
+    while (vv > 0) {
+        if (exchWeak(vv, vv-1)) {
+
+            // если был один читатель, и успешное завершение, тогда vv не изменяется...
+            if (vv == 1) // ждать могут только на запись
+                counter.notify_one(); // здесь одного достаточно, но при разблокировки из записи уже нотифи всех.
+
+            return;
+        }
+    }
+
+    assert( vv <= -3 );
+
     while (true) {
-
-        volatile TT vv = load();
-        TT v = vv;
-
-        if (v < 0) {
-            assert( v <= -3 );
-            if (!exch(v, v+1))
-                continue;
-            if (v == -3)
+        if (exchWeak(vv, vv+1)) {
+            if (vv == -3)
                 // такой на запись один, но который из них неизвестно
                 counter.notify_all();
             return;
         }
-
-        assert( v > 0 );
-
-        if (!exch(v, v-1))
-            continue;
-
-        if (v == 1) // ждать могут только на запись
-            counter.notify_one(); // одного достаточно
-
-        return;
     }
+
 }
 
+
 #endif // __AtomicMutex_h__
+
