@@ -49,12 +49,12 @@ MutexInt mtx;
    ...
 }
 ...
-// void AtomicMutex::useForRead(const auto& task);
+// auto AtomicMutex::useForRead(const auto& task);
 auto value = mtx.useForRead([&] {
    return doSomeThing();
 });
 ...
-// void AtomicMutex::useForWrite(const auto& task);
+// auto AtomicMutex::useForWrite(const auto& task);
 auto value = mtx.useForWrite([&] {
    return doSomeThing();
 });
