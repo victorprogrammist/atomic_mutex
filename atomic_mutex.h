@@ -51,8 +51,8 @@ struct AtomicMutex {
     void lock_shared() { lockForRead(); }
     void unlock_shared() { unlockForRead(); }
 
-    void useForRead(const auto& task);
-    void useForWrite(const auto& task);
+    auto useForRead(const auto& task);
+    auto useForWrite(const auto& task);
 
 private:
     std::atomic<TT> counter = 0;
@@ -79,6 +79,10 @@ struct AtomicMutexReadLocker {
     ~AtomicMutexReadLocker() {
         ptr->unlockForRead(); }
 
+    auto run(const auto& task) const {
+        return task();
+    }
+
 private:
     Mtx* ptr = nullptr;
 };
@@ -94,6 +98,10 @@ struct AtomicMutexWriteLocker {
     ~AtomicMutexWriteLocker() {
         ptr->unlockForWrite(); }
 
+    auto run(const auto& task) const {
+        return task();
+    }
+
 private:
     Mtx* ptr = nullptr;
 };
@@ -108,6 +116,10 @@ struct AtomicMutexWriteLazyLocker {
     ~AtomicMutexWriteLazyLocker() {
         ptr->unlockForWrite(); }
 
+    auto run(const auto& task) const {
+        return task();
+    }
+
 private:
     Mtx* ptr = nullptr;
 };
@@ -115,15 +127,13 @@ private:
 //*****************************************************
 
 template <class TT>
-void AtomicMutex<TT>::useForRead(const auto& task) {
-    AtomicMutexReadLocker<TT> locker(*this);
-    task();
+auto AtomicMutex<TT>::useForRead(const auto& task) {
+    return AtomicMutexReadLocker<TT>(*this).run(task);
 }
 
 template <class TT>
-void AtomicMutex<TT>::useForWrite(const auto& task) {
-    AtomicMutexWriteLocker<TT> locker(*this);
-    task();
+auto AtomicMutex<TT>::useForWrite(const auto& task) {
+    return AtomicMutexWriteLocker<TT>(*this).run(task);
 }
 
 //*****************************************************
